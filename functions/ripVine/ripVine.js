@@ -3,7 +3,7 @@
 process.env['PATH'] = process.env['PATH'] + ':' + process.env['LAMBDA_TASK_ROOT'];
 const AWS = require('aws-sdk');
 const async = require('async');
-var https = require('https');
+const https = require('https');
 const fs = require('fs');
 const ffmpeg = require('ffmpeg');
 const im = require('gm').subClass({imageMagick: true});
