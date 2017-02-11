@@ -1,4 +1,6 @@
 service: machete-backend
+custom:
+  machete_bucket: rippedvines-2-0
 package:
   individually: true
 provider:
@@ -16,6 +18,7 @@ provider:
       Resource: "*"
   environment:
     IOT_ROLE: machete-iot-1
+    MACHETE_BUCKET: ${self:custom.machete_bucket}
 
 functions:
   ping:
@@ -44,3 +47,9 @@ functions:
         - functions/ripVine/ffprobe # see if this binary and those that follow can be excluded
         - functions/ripVine/ffserver
         - functions/ripVine/x264
+resources:
+  Resources:
+    MacheteBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.machete_bucket}

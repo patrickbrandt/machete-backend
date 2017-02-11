@@ -11,7 +11,7 @@ const rimraf = require('rimraf');
 
 const framesDirectory = '/tmp/frames';
 const spriteRowsDirectory = '/tmp/rows';
-const s3bucket = 'rippedvines-2-0';
+const s3bucket = process.env.MACHETE_BUCKET;
 const columns = 10;
 const size = 300;
 
