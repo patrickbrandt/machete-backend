@@ -3,7 +3,7 @@
 const AWS = require('aws-sdk');
 const iot = new AWS.Iot();
 const sts = new AWS.STS();
-const roleName = 'serverless-notifications';
+const roleName = process.env.IOT_ROLE;
 const uuid = require('uuid/v4');
 
 module.exports = (event, context, callback) => {

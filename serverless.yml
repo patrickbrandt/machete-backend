@@ -5,6 +5,17 @@ provider:
   name: aws
   runtime: nodejs4.3
   profile: personal-account-admin
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - 'iot:DescribeEndpoint'
+      Resource: "*"
+    - Effect: "Allow"
+      Action:
+        - 'sts:AssumeRole'
+      Resource: "*"
+  environment:
+    IOT_ROLE: machete-iot-1
 
 # you can overwrite defaults here
 #  stage: dev
@@ -28,8 +39,18 @@ provider:
 functions:
   ping:
     handler: handler.ping
+    events:
+      - http:
+          path: ping
+          method: GET
+          cors: true
   auth:
     handler: handler.auth
+    events:
+      - http:
+          path: auth
+          method: POST
+          cors: true
   ripVine:
     handler: handler.ripVine
     events:
