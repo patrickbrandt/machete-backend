@@ -24,6 +24,17 @@ module.exports = (event, context, callback) => {
   const vine_id = getVineId(event.vine_url);
   let frames = 0;
   async.waterfall([
+    function cleanTmpDirectory(next) {
+			console.log('cleaning /tmp');
+      try {
+  			fs.unlinkSync('/tmp/' + vine_id + '.mp3');
+  			fs.unlinkSync('/tmp/' + vine_id + '.jpg');
+  			fs.unlinkSync('/tmp/' + vine_id + '.mp4');
+  			rimraf.sync(framesDirectory);
+  			rimraf.sync(spriteRowsDirectory);
+      } catch (err) {}
+			next(null);
+		},
     function getMarkup(next) {
       console.log('in getMarkup function');
       //example: https://archive.vine.co/posts/eD7EM9XZpeu.json
