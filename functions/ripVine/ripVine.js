@@ -45,25 +45,25 @@ module.exports = (event, context, callback) => {
 				});
 			});
     },
-    function dowloadVideo(videoSrc, next) {
+    function downloadVideo(videoSrc, next) {
 
-      console.log(`in dowloadVideo function with videoSrc of ${videoSrc}`);
+      console.log(`in downloadVideo function with videoSrc of ${videoSrc}`);
 
-			//callWebhook(session_id, vine_id, "downloading vine");
-
-			https.get(videoSrc, response => {
-				const videoFileName = `/tmp/${vine_id}.mp4`;
-				const videoFile = fs.createWriteStream(videoFileName);
-	  		response.pipe(videoFile);
-	  		response.on('end', () => {
-	  			console.log(`${videoFileName} downloaded`);
-		  		next(null, videoFileName);
-	  		})
-	  		.on('error', ex => {
-					next(ex);
-				});
-			});
-
+      publish(progressTopic, 'downloading vine')
+        .then(() => {
+          https.get(videoSrc.replace('http:', 'https:'), response => {
+    				const videoFileName = `/tmp/${vine_id}.mp4`;
+    				const videoFile = fs.createWriteStream(videoFileName);
+    	  		response.pipe(videoFile);
+    	  		response.on('end', () => {
+    	  			console.log(`${videoFileName} downloaded`);
+    		  		next(null, videoFileName);
+    	  		})
+    	  		.on('error', ex => {
+    					next(ex);
+    				});
+    			});
+        });
     },
     //function extractFrames(videoFileName, next) {},
     //function createMontage(videoFileName, next) {},
@@ -100,4 +100,24 @@ function putObject(fileName, key, next) {
 			}
 		});
 	});
+}
+
+function publish(topic, message) {
+  let payload = message;
+  if (typeof message === 'object') {
+    payload = JSON.stringify(message);
+  }
+  const iotdata = new AWS.IotData({ endpoint: process.env.IOT_ENDPOINT });
+  return new Promise((resolve, reject) => {
+    iotdata.publish({
+        topic: topic,
+        payload: payload,
+        qos: 0
+      }, (err, data) => {
+        if (err) {
+          console.log(`iot error: ${err}`);
+        }
+        return resolve();
+      });
+  });
 }

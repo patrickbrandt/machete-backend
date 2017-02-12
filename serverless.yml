@@ -11,6 +11,7 @@ provider:
     - Effect: "Allow"
       Action:
         - 'iot:DescribeEndpoint'
+        - 'iot:Publish'
       Resource: "*"
     - Effect: "Allow"
       Action:
@@ -18,6 +19,7 @@ provider:
       Resource: "*"
   environment:
     IOT_ROLE: machete-iot-1
+    IOT_ENDPOINT: a31p550in0aqjb.iot.us-east-1.amazonaws.com
     MACHETE_BUCKET: ${self:custom.machete_bucket}
 
 functions:
@@ -39,7 +41,7 @@ functions:
     handler: handler.ripVine
     events:
       - iot:
-          sql: "SELECT * FROM '/machete/#'"
+          sql: "SELECT * FROM '/machete/vine/#'"
     package:
       include:
         - functions/ripVine/ffmpeg

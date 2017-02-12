@@ -41,6 +41,7 @@ module.exports = (event, context, callback) => {
 };
 
 const buildResponseObject = (iotEndpoint, region, accessKey, secretKey, sessionToken) => {
+  const topicId = uuid();
   return {
     statusCode: 200,
     headers: {
@@ -52,7 +53,8 @@ const buildResponseObject = (iotEndpoint, region, accessKey, secretKey, sessionT
       accessKey: accessKey,
       secretKey: secretKey,
       sessionToken: sessionToken,
-      topic: `/machete/${uuid()}` //NOTE: may be unneccessary --> perhaps use sessionToken instead
+      vineTopic: `/machete/vine/${topicId}`,
+      progressTopic: `/machete/progress/${topicId}`
     })
   };
 };
