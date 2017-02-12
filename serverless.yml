@@ -17,6 +17,10 @@ provider:
       Action:
         - 'sts:AssumeRole'
       Resource: "*"
+    - Effect: "Allow"
+      Action:
+        - 's3:PutObject'
+      Resource: "arn:aws:s3:::${self:custom.machete_bucket}"
   environment:
     IOT_ROLE: machete-iot-1
     IOT_ENDPOINT: a31p550in0aqjb.iot.us-east-1.amazonaws.com
@@ -39,6 +43,7 @@ functions:
           cors: true
   ripVine:
     handler: handler.ripVine
+    timeout: 40
     events:
       - iot:
           sql: "SELECT * FROM '/machete/vine/#'"
