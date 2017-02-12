@@ -17,6 +17,70 @@ const size = 300;
 
 module.exports = (event, context, callback) => {
   console.log(`recieved event: ${JSON.stringify(event)}`);
+  //event -->
+  //progressTopic
+  //vine_url
+  const progressTopic = event.progressTopic;
+  const vine_id = getVineId(event.vine_url);
+  let frames = 0;
+  async.waterfall([
+    function getMarkup(next) {
+      console.log('in getMarkup function');
+      //https://archive.vine.co/posts/eD7EM9XZpeu.json
+			https.get(`https://archive.vine.co/posts/${vine_id}.json`, response => {
+				let data = '';
+				response.on('data', chunk => {
+					data += chunk;
+				})
+				.on('end', () => {
+          const videoData = JSON.parse(data);
+          const videoSrc = videoData.videoUrl;
+					console.log(`videoSrc: ${videoSrc}`);
+
+					//download video
+					next(null, videoSrc);
+				})
+				.on('error', ex => {
+					next(ex);
+				});
+			});
+    },
+    function dowloadVideo(videoSrc, next) {
+
+      console.log(`in dowloadVideo function with videoSrc of ${videoSrc}`);
+
+			//callWebhook(session_id, vine_id, "downloading vine");
+
+			https.get(videoSrc, response => {
+				const videoFileName = `/tmp/${vine_id}.mp4`;
+				const videoFile = fs.createWriteStream(videoFileName);
+	  		response.pipe(videoFile);
+	  		response.on('end', () => {
+	  			console.log(`${videoFileName} downloaded`);
+		  		next(null, videoFileName);
+	  		})
+	  		.on('error', ex => {
+					next(ex);
+				});
+			});
+
+    },
+    //function extractFrames(videoFileName, next) {},
+    //function createMontage(videoFileName, next) {},
+    //function separateAudio(videoFileName, next) {},
+    //function uploadAudioToS3(next) {},
+    //function uploadMosaicToS3(next) {},
+    //function triggerComplete(next) {},
+    //function cleanTmpDirectory(next) {},
+    function done() {}
+  ], err => {
+    console.log(`error processing video: ${err}`);
+  });
+}
+
+function getVineId(vineUrl) {
+  const vineIdRegEx = /\/v\/(\w+)\/?/;
+  return vineUrl.match(vineIdRegEx)[1];
 }
 
 function putObject(fileName, key, next) {
@@ -31,7 +95,6 @@ function putObject(fileName, key, next) {
 			if (err) {
 				next(err);
 			} else {
-				//console.log(fileName + ' uploaded to ' + key);
         console.log(`${fileName} uploaded to ${key}`);
 				next(null);
 			}
