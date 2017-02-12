@@ -124,9 +124,9 @@ module.exports = (event, context, callback) => {
   					.setVideoDuration(6)
   					.setVideoFrameRate(30)
   					.setDisableVideo()
-  					.save(audioFileName, (error, file) => {
-  						if(error) {
-  							next(error);
+  					.save(audioFileName, (err, file) => {
+  						if(err) {
+  							return next(err);
   						}
   						console.log(`wrote file to: ${file}`);
               next();
@@ -134,6 +134,25 @@ module.exports = (event, context, callback) => {
   			}, err => {
   				next(err);
   			});
+      });
+    },
+    function testFs(next) {
+      fs.readFile(`/tmp/${vine_id}.mp3`, (err, data) => {
+        if (err) {
+          console.log(`audio file read failure with err: ${err}`);
+          return next(err);
+        }
+        console.log(`audio file read with data`);
+        const s3 = new AWS.S3();
+    		s3.putObject({ Bucket: s3bucket, Key: `${vine_id}.mp3`, Body: new Buffer(data, 'binary') }, function(err, data) {
+    			if (err) {
+    				next(err);
+    			} else {
+            console.log(`/tmp/${vine_id}.mp3 uploaded to $${vine_id}.mp3`);
+    				next();
+    			}
+    		});
+        //next(); //this worked
       });
     },
     //function uploadAudioToS3(next) {},
