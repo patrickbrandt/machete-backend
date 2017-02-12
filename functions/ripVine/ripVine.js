@@ -46,9 +46,7 @@ module.exports = (event, context, callback) => {
 			});
     },
     function downloadVideo(videoSrc, next) {
-
       console.log(`in downloadVideo function with videoSrc of ${videoSrc}`);
-
       publish(progressTopic, 'downloading vine')
         .then(() => {
           https.get(videoSrc.replace('http:', 'https:'), response => {
@@ -96,7 +94,26 @@ module.exports = (event, context, callback) => {
 				});
       });
     },
-    //function createMontage(videoFileName, next) {},
+    function createMontage(videoFileName, next) {
+      console.log('creating montage');
+			frames = fs.readdirSync(framesDirectory).length;
+      publish(progressTopic, 'converting video - part 2').then(() => {
+        im()
+          .montage(`${framesDirectory}/${vine_id}_*.jpg`)
+          .tile('10x18')
+          .geometry('+0+0')
+          .resize(size,size)
+          .write(`/tmp/${vine_id}.jpg`, error => {
+            if (error) {
+              next(error);
+            }
+            else {
+            	console.log('wrote montage image');
+            	next(null, videoFileName);
+            }
+          });
+      });
+    },
     //function separateAudio(videoFileName, next) {},
     //function uploadAudioToS3(next) {},
     //function uploadMosaicToS3(next) {},
