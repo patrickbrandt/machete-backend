@@ -114,12 +114,36 @@ module.exports = (event, context, callback) => {
           });
       });
     },
-    //function separateAudio(videoFileName, next) {},
+    function separateAudio(videoFileName, next) {
+      publish(progressTopic, 'converting audio').then(() => {
+        new ffmpeg(videoFileName).then(video => {
+          const audioFileName = `/tmp/${vine_id}.mp3`;
+  				console.log(`extracting audio to: ${audioFileName}`);
+  				video.setAudioCodec('mp3')
+  					.setAudioBitRate(128)
+  					.setVideoDuration(6)
+  					.setVideoFrameRate(30)
+  					.setDisableVideo()
+  					.save(audioFileName, (error, file) => {
+  						if(error) {
+  							next(error);
+  						}
+  						console.log(`wrote file to: ${file}`);
+              next();
+  					});
+  			}, err => {
+  				next(err);
+  			});
+      });
+    },
     //function uploadAudioToS3(next) {},
     //function uploadMosaicToS3(next) {},
     //function triggerComplete(next) {},
     //function cleanTmpDirectory(next) {},
-    function done() {}
+    function done() {
+      console.log('done');
+      publish(progressTopic, 'done').then(() => {});
+    }
   ], err => {
     const message = `error processing video: ${err}`;
     console.log(message);
