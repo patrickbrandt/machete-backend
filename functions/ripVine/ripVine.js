@@ -1,6 +1,6 @@
 'use strict';
-
-process.env['PATH'] = process.env['PATH'] + ':' + process.env['LAMBDA_TASK_ROOT'];
+process.env['PATH'] = `${process.env['PATH']}:${process.env['LAMBDA_TASK_ROOT']}:${process.env['LAMBDA_TASK_ROOT']}/functions/ripVine`;
+//process.env['PATH'] = process.env['PATH'] + ':' + process.env['LAMBDA_TASK_ROOT'] + ':' + `${process.env['LAMBDA_TASK_ROOT']}/functions/ripVine`;
 const AWS = require('aws-sdk');
 const async = require('async');
 const https = require('https');
@@ -26,7 +26,7 @@ module.exports = (event, context, callback) => {
   async.waterfall([
     function getMarkup(next) {
       console.log('in getMarkup function');
-      //https://archive.vine.co/posts/eD7EM9XZpeu.json
+      //example: https://archive.vine.co/posts/eD7EM9XZpeu.json
 			https.get(`https://archive.vine.co/posts/${vine_id}.json`, response => {
 				let data = '';
 				response.on('data', chunk => {
@@ -65,7 +65,37 @@ module.exports = (event, context, callback) => {
     			});
         });
     },
-    //function extractFrames(videoFileName, next) {},
+    function extractFrames(videoFileName, next) {
+      //NOTE: not happy with using error handling for control logic - refactor later
+      try {
+        fs.mkdirSync(framesDirectory);
+      } catch(e) {
+        //eat the error - will be thorwn if directory already exists
+      }
+
+      publish(progressTopic, 'converting video - part 1').then(() => {
+        new ffmpeg(videoFileName).then(video => {
+					console.log('extracting frames');
+					video.setDisableAudio();
+					video.addCommand('-r', 30);
+					video.addCommand('-t', 6);
+					video.addCommand('-q:v', 3);
+					video.addCommand('-f', 'image2');
+					video.addCommand('-s', size + 'x' + size);
+					video.save(framesDirectory + '/' + vine_id + '_%03d.jpg', (err, files) => {
+            if (err) {
+              next(err);
+            } else {
+				      console.log(`extracted files: ${files}`);
+            	next(null, videoFileName);
+            }
+					});
+				},
+				err => {
+					next(err);
+				});
+      });
+    },
     //function createMontage(videoFileName, next) {},
     //function separateAudio(videoFileName, next) {},
     //function uploadAudioToS3(next) {},
@@ -74,7 +104,9 @@ module.exports = (event, context, callback) => {
     //function cleanTmpDirectory(next) {},
     function done() {}
   ], err => {
-    console.log(`error processing video: ${err}`);
+    const message = `error processing video: ${err}`;
+    console.log(message);
+    publish(progressTopic, message).then(() => {});
   });
 }
 
@@ -103,15 +135,11 @@ function putObject(fileName, key, next) {
 }
 
 function publish(topic, message) {
-  let payload = message;
-  if (typeof message === 'object') {
-    payload = JSON.stringify(message);
-  }
   const iotdata = new AWS.IotData({ endpoint: process.env.IOT_ENDPOINT });
   return new Promise((resolve, reject) => {
     iotdata.publish({
         topic: topic,
-        payload: payload,
+        payload: JSON.stringify({ message: message }),
         qos: 0
       }, (err, data) => {
         if (err) {
