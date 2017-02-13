@@ -60,6 +60,10 @@ resources:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: ${self:custom.machete_bucket}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedMethods: [GET]
+              AllowedOrigins: ['*']
     MacheteBucketPolicy: # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-policy.html#cfn-s3-bucketpolicy-policydocument
       Type: AWS::S3::BucketPolicy
       Properties:
