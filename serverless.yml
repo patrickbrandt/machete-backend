@@ -60,7 +60,7 @@ resources:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: ${self:custom.machete_bucket}
-        CorsConfiguration:
+        CorsConfiguration: # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-bucket.html#cfn-s3-bucket-crossoriginconfig
           CorsRules:
             - AllowedMethods: [GET]
               AllowedOrigins: ['http://machete-site.s3-website-us-east-1.amazonaws.com']
