@@ -152,7 +152,12 @@ module.exports = (event, context, callback) => {
       })
       .catch(err => next(err));
     },
-    //function uploadMosaicToS3(next) {},
+    function uploadMosaicToS3(next) {
+      publish(progressTopic, 'uploading video').then(() => {
+        putObject(`/tmp/${vine_id}.jpg`, `${vine_id}.jpg`, next);
+      })
+      .catch(err => next(err));
+    },
     //function triggerComplete(next) {},
     //function cleanTmpDirectory(next) {},
     function done() {
@@ -177,7 +182,6 @@ function putObject(fileName, key, next) {
 		if (err) {
 			return next(err);
 		}
-
 		const s3 = new AWS.S3();
 		s3.putObject({ Bucket: s3bucket, Key: key, Body: new Buffer(data, 'binary') }, (err, data) => {
 			if (err) {
