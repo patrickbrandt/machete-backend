@@ -158,11 +158,22 @@ module.exports = (event, context, callback) => {
       })
       .catch(err => next(err));
     },
-    //function triggerComplete(next) {},
-    //function cleanTmpDirectory(next) {},
+    function triggerComplete(next) {
+      const s3url = 'https://s3.amazonaws.com/' + s3bucket + '/' + vine_id;
+      const data = {
+        'frames': frames,
+        'size': size,
+        'id': vine_id,
+        'sprite_url': `${s3url}.jpg`,
+        'audio_url': `${s3url}.mp3`
+      };
+      publish(progressTopic, data).then(() => {
+        next();
+      })
+      .catch(err => next(err));
+    },
     function done() {
       console.log('done');
-      publish(progressTopic, 'done').then(() => {});
     }
   ], err => {
     const message = `error processing video: ${err}`;
@@ -200,7 +211,7 @@ function publish(topic, message) {
     iotdata.publish({
         topic: topic,
         payload: JSON.stringify({ message: message }),
-        qos: 0
+        qos: 1
       }, (err, data) => {
         if (err) {
           console.log(`iot error: ${err}`);
