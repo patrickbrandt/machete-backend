@@ -18,28 +18,28 @@ module.exports = (event, context, callback) => {
   console.log(`recieved event: ${JSON.stringify(event)}`);
   //event -->
   //progressTopic
-  //vine_url
+  //vineUrl
   const progressTopic = event.progressTopic;
-  const vine_id = getVineId(event.vine_url);
+  const vineId = getVineId(event.vineUrl);
   let frames = 0;
   async.waterfall([
     function cleanTmpDirectory(next) {
       //NOTE: the ffmpeg->video.save function in separateAudio (below) will timeout when it encounters an existing file
       // thus, I'm cleaning up all files and directories at the start
       //TODO: experiment with this in Bash to figure out why timeout is happening
+      //OR: test for existance of each file and short-circuit processing if file already exists
 			console.log('cleaning /tmp');
       rimraf.sync(framesDirectory);
       ['mp3', 'jpg', 'mp4'].forEach(ext => {
         try {
-          fs.unlinkSync(`/tmp/${vine_id}.${ext}`);
+          fs.unlinkSync(`/tmp/${vineId}.${ext}`);
         } catch (err) {}
       });
 			next();
 		},
-    function getMarkup(next) {
-      console.log('in getMarkup function');
+    function getVineData(next) {
       //example: https://archive.vine.co/posts/eD7EM9XZpeu.json
-			https.get(`https://archive.vine.co/posts/${vine_id}.json`, response => {
+			https.get(`https://archive.vine.co/posts/${vineId}.json`, response => {
 				let data = '';
 				response.on('data', chunk => {
 					data += chunk;
@@ -48,8 +48,6 @@ module.exports = (event, context, callback) => {
           const videoData = JSON.parse(data);
           const videoSrc = videoData.videoUrl;
 					console.log(`videoSrc: ${videoSrc}`);
-
-					//download video
 					next(null, videoSrc);
 				})
 				.on('error', err => {
@@ -61,7 +59,7 @@ module.exports = (event, context, callback) => {
       console.log(`in downloadVideo function with videoSrc of ${videoSrc}`);
       publish(progressTopic, 'downloading vine').then(() => {
         https.get(videoSrc.replace('http:', 'https:'), response => {
-  				const videoFileName = `/tmp/${vine_id}.mp4`;
+  				const videoFileName = `/tmp/${vineId}.mp4`;
   				const videoFile = fs.createWriteStream(videoFileName);
   	  		response.pipe(videoFile);
   	  		response.on('end', () => {
@@ -85,13 +83,12 @@ module.exports = (event, context, callback) => {
 					video.addCommand('-q:v', 3);
 					video.addCommand('-f', 'image2');
 					video.addCommand('-s', `${size}x${size}`);
-					video.save(`${framesDirectory}/${vine_id}_%03d.jpg`, (err, files) => {
+					video.save(`${framesDirectory}/${vineId}_%03d.jpg`, (err, files) => {
             if (err) {
-              next(err);
-            } else {
-				      console.log(`extracted files: ${files}`);
-            	next(null, videoFileName);
+              return next(err);
             }
+			      console.log(`extracted files: ${files}`);
+          	next(null, videoFileName);
 					});
 				},
 				err => {
@@ -104,25 +101,23 @@ module.exports = (event, context, callback) => {
 			frames = fs.readdirSync(framesDirectory).length;
       publish(progressTopic, 'converting video - part 2').then(() => {
         im()
-          .montage(`${framesDirectory}/${vine_id}_*.jpg`)
+          .montage(`${framesDirectory}/${vineId}_*.jpg`)
           .tile('10x18')
           .geometry('+0+0')
           .resize(size,size)
-          .write(`/tmp/${vine_id}.jpg`, error => {
-            if (error) {
-              next(error);
+          .write(`/tmp/${vineId}.jpg`, err => {
+            if (err) {
+              return next(err);
             }
-            else {
-            	console.log('wrote montage image');
-            	next(null, videoFileName);
-            }
+          	console.log('wrote montage image');
+          	next(null, videoFileName);
           });
       }).catch(err => next(err));
     },
     function separateAudio(videoFileName, next) {
       publish(progressTopic, 'converting audio').then(() => {
         new ffmpeg(videoFileName).then(video => {
-          const audioFileName = `/tmp/${vine_id}.mp3`;
+          const audioFileName = `/tmp/${vineId}.mp3`;
   				console.log(`extracting audio to: ${audioFileName}`);
   				video.setAudioCodec('mp3')
   					.setAudioBitRate(128)
@@ -143,20 +138,20 @@ module.exports = (event, context, callback) => {
     },
     function uploadAudioToS3(next) {
       publish(progressTopic, 'uploading audio').then(() => {
-        putObject(`/tmp/${vine_id}.mp3`, `${vine_id}.mp3`, next);
+        putObject(`/tmp/${vineId}.mp3`, `${vineId}.mp3`, next);
       }).catch(err => next(err));
     },
     function uploadMosaicToS3(next) {
       publish(progressTopic, 'uploading video').then(() => {
-        putObject(`/tmp/${vine_id}.jpg`, `${vine_id}.jpg`, next);
+        putObject(`/tmp/${vineId}.jpg`, `${vineId}.jpg`, next);
       }).catch(err => next(err));
     },
     function triggerComplete(next) {
-      const s3url = `https://s3.amazonaws.com/${s3bucket}/${vine_id}`;
+      const s3url = `https://s3.amazonaws.com/${s3bucket}/${vineId}`;
       const data = {
         'frames': frames,
         'size': size,
-        'id': vine_id,
+        'id': vineId,
         'sprite_url': `${s3url}.jpg`,
         'audio_url': `${s3url}.mp3`
       };
