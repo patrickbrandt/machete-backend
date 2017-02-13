@@ -43,7 +43,7 @@ functions:
           cors: true
   ripVine:
     handler: handler.ripVine
-    timeout: 40
+    timeout: 15
     events:
       - iot:
           sql: "SELECT * FROM '/machete/vine/#'"
@@ -60,3 +60,15 @@ resources:
       Type: AWS::S3::Bucket
       Properties:
         BucketName: ${self:custom.machete_bucket}
+    MacheteBucketPolicy: # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-policy.html#cfn-s3-bucketpolicy-policydocument
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket: ${self:custom.machete_bucket}
+        PolicyDocument:
+          Statement:
+            - Action:
+                - "s3:GetObject"
+              Effect: "Allow"
+              Principal: "*"
+              Resource: "arn:aws:s3:::${self:custom.machete_bucket}/*"
+              #TODO: restrict to specific referring url - example visible in the link above
