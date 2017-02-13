@@ -63,7 +63,7 @@ resources:
         CorsConfiguration:
           CorsRules:
             - AllowedMethods: [GET]
-              AllowedOrigins: ['*']
+              AllowedOrigins: ['http://machete-site.s3-website-us-east-1.amazonaws.com']
     MacheteBucketPolicy: # http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-s3-policy.html#cfn-s3-bucketpolicy-policydocument
       Type: AWS::S3::BucketPolicy
       Properties:
@@ -75,4 +75,7 @@ resources:
               Effect: "Allow"
               Principal: "*"
               Resource: "arn:aws:s3:::${self:custom.machete_bucket}/*"
-              #TODO: restrict to specific referring url - example visible in the link above
+              Condition:
+                StringLike:
+                  aws:Referer:
+                    - "http://machete-site.s3-website-us-east-1.amazonaws.com/*"
