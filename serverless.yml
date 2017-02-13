@@ -20,7 +20,7 @@ provider:
     - Effect: "Allow"
       Action:
         - 's3:PutObject'
-      Resource: "*"
+      Resource: "arn:aws:s3:::${self:custom.machete_bucket}/*"
   environment:
     IOT_ROLE: machete-iot-1
     IOT_ENDPOINT: a31p550in0aqjb.iot.us-east-1.amazonaws.com
