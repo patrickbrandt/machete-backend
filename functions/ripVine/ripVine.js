@@ -58,21 +58,20 @@ module.exports = (event, context, callback) => {
     },
     function downloadVideo(videoSrc, next) {
       console.log(`in downloadVideo function with videoSrc of ${videoSrc}`);
-      publish(progressTopic, 'downloading vine')
-        .then(() => {
-          https.get(videoSrc.replace('http:', 'https:'), response => {
-    				const videoFileName = `/tmp/${vine_id}.mp4`;
-    				const videoFile = fs.createWriteStream(videoFileName);
-    	  		response.pipe(videoFile);
-    	  		response.on('end', () => {
-    	  			console.log(`${videoFileName} downloaded`);
-    		  		next(null, videoFileName);
-    	  		})
-    	  		.on('error', ex => {
-    					next(ex);
-    				});
-    			});
-        });
+      publish(progressTopic, 'downloading vine').then(() => {
+        https.get(videoSrc.replace('http:', 'https:'), response => {
+  				const videoFileName = `/tmp/${vine_id}.mp4`;
+  				const videoFile = fs.createWriteStream(videoFileName);
+  	  		response.pipe(videoFile);
+  	  		response.on('end', () => {
+  	  			console.log(`${videoFileName} downloaded`);
+  		  		next(null, videoFileName);
+  	  		})
+  	  		.on('error', ex => {
+  					next(ex);
+  				});
+  			});
+      }).catch(err => next(err));
     },
     function extractFrames(videoFileName, next) {
       //NOTE: not happy with using error handling for control logic - refactor later
@@ -103,7 +102,7 @@ module.exports = (event, context, callback) => {
 				err => {
 					next(err);
 				});
-      });
+      }).catch(err => next(err));
     },
     function createMontage(videoFileName, next) {
       console.log('creating montage');
@@ -123,7 +122,7 @@ module.exports = (event, context, callback) => {
             	next(null, videoFileName);
             }
           });
-      });
+      }).catch(err => next(err));
     },
     function separateAudio(videoFileName, next) {
       publish(progressTopic, 'converting audio').then(() => {
@@ -147,26 +146,12 @@ module.exports = (event, context, callback) => {
   			});
       });
     },
-    function testFs(next) {
-      fs.readFile(`/tmp/${vine_id}.mp3`, (err, data) => {
-        if (err) {
-          console.log(`audio file read failure with err: ${err}`);
-          return next(err);
-        }
-        console.log(`audio file read with data`);
-        const s3 = new AWS.S3();
-    		s3.putObject({ Bucket: s3bucket, Key: `${vine_id}.mp3`, Body: new Buffer(data, 'binary') }, function(err, data) {
-    			if (err) {
-    				next(err);
-    			} else {
-            console.log(`/tmp/${vine_id}.mp3 uploaded to $${vine_id}.mp3`);
-    				next();
-    			}
-    		});
-        //next(); //this worked
-      });
+    function uploadAudioToS3(next) {
+      publish(progressTopic, 'uploading audio').then(() => {
+        putObject(`/tmp/${vine_id}.mp3`, `${vine_id}.mp3`, next);
+      })
+      .catch(err => next(err));
     },
-    //function uploadAudioToS3(next) {},
     //function uploadMosaicToS3(next) {},
     //function triggerComplete(next) {},
     //function cleanTmpDirectory(next) {},
@@ -187,19 +172,19 @@ function getVineId(vineUrl) {
 }
 
 function putObject(fileName, key, next) {
-  console.log(`uploading ${filename} to S3 key ${key}`)
-	fs.readFile(fileName, function (err, data) {
+  console.log(`uploading ${fileName} to S3 key ${key}`)
+	fs.readFile(fileName, (err, data) => {
 		if (err) {
-			next(err);
+			return next(err);
 		}
 
-		const s3 = new aws.S3();
-		s3.putObject({ Bucket: s3bucket, Key: key, Body: new Buffer(data, 'binary') }, function(err, data) {
+		const s3 = new AWS.S3();
+		s3.putObject({ Bucket: s3bucket, Key: key, Body: new Buffer(data, 'binary') }, (err, data) => {
 			if (err) {
 				next(err);
 			} else {
         console.log(`${fileName} uploaded to ${key}`);
-				next(null);
+				next();
 			}
 		});
 	});
