@@ -1,6 +1,6 @@
 'use strict';
+
 process.env['PATH'] = `${process.env['PATH']}:${process.env['LAMBDA_TASK_ROOT']}:${process.env['LAMBDA_TASK_ROOT']}/functions/ripVine`;
-//process.env['PATH'] = process.env['PATH'] + ':' + process.env['LAMBDA_TASK_ROOT'] + ':' + `${process.env['LAMBDA_TASK_ROOT']}/functions/ripVine`;
 const AWS = require('aws-sdk');
 const async = require('async');
 const https = require('https');
@@ -10,7 +10,6 @@ const im = require('gm').subClass({imageMagick: true});
 const rimraf = require('rimraf');
 
 const framesDirectory = '/tmp/frames';
-const spriteRowsDirectory = '/tmp/rows';
 const s3bucket = process.env.MACHETE_BUCKET;
 const columns = 10;
 const size = 300;
@@ -25,15 +24,17 @@ module.exports = (event, context, callback) => {
   let frames = 0;
   async.waterfall([
     function cleanTmpDirectory(next) {
+      //NOTE: the ffmpeg->video.save function in separateAudio (below) will timeout when it encounters an existing file
+      // thus, I'm cleaning up all files and directories at the start
+      //TODO: experiment with this in Bash to figure out why timeout is happening
 			console.log('cleaning /tmp');
-      try {
-  			fs.unlinkSync('/tmp/' + vine_id + '.mp3');
-  			fs.unlinkSync('/tmp/' + vine_id + '.jpg');
-  			fs.unlinkSync('/tmp/' + vine_id + '.mp4');
-  			rimraf.sync(framesDirectory);
-  			rimraf.sync(spriteRowsDirectory);
-      } catch (err) {}
-			next(null);
+      rimraf.sync(framesDirectory);
+      ['mp3', 'jpg', 'mp4'].forEach(ext => {
+        try {
+          fs.unlinkSync(`/tmp/${vine_id}.${ext}`);
+        } catch (err) {}
+      });
+			next();
 		},
     function getMarkup(next) {
       console.log('in getMarkup function');
@@ -51,8 +52,8 @@ module.exports = (event, context, callback) => {
 					//download video
 					next(null, videoSrc);
 				})
-				.on('error', ex => {
-					next(ex);
+				.on('error', err => {
+					next(err);
 				});
 			});
     },
@@ -67,20 +68,14 @@ module.exports = (event, context, callback) => {
   	  			console.log(`${videoFileName} downloaded`);
   		  		next(null, videoFileName);
   	  		})
-  	  		.on('error', ex => {
-  					next(ex);
+  	  		.on('error', err => {
+  					next(err);
   				});
   			});
       }).catch(err => next(err));
     },
     function extractFrames(videoFileName, next) {
-      //NOTE: not happy with using error handling for control logic - refactor later
-      try {
-        fs.mkdirSync(framesDirectory);
-      } catch(e) {
-        //eat the error - will be thorwn if directory already exists
-      }
-
+      fs.mkdirSync(framesDirectory);
       publish(progressTopic, 'converting video - part 1').then(() => {
         new ffmpeg(videoFileName).then(video => {
 					console.log('extracting frames');
@@ -89,8 +84,8 @@ module.exports = (event, context, callback) => {
 					video.addCommand('-t', 6);
 					video.addCommand('-q:v', 3);
 					video.addCommand('-f', 'image2');
-					video.addCommand('-s', size + 'x' + size);
-					video.save(framesDirectory + '/' + vine_id + '_%03d.jpg', (err, files) => {
+					video.addCommand('-s', `${size}x${size}`);
+					video.save(`${framesDirectory}/${vine_id}_%03d.jpg`, (err, files) => {
             if (err) {
               next(err);
             } else {
@@ -149,17 +144,15 @@ module.exports = (event, context, callback) => {
     function uploadAudioToS3(next) {
       publish(progressTopic, 'uploading audio').then(() => {
         putObject(`/tmp/${vine_id}.mp3`, `${vine_id}.mp3`, next);
-      })
-      .catch(err => next(err));
+      }).catch(err => next(err));
     },
     function uploadMosaicToS3(next) {
       publish(progressTopic, 'uploading video').then(() => {
         putObject(`/tmp/${vine_id}.jpg`, `${vine_id}.jpg`, next);
-      })
-      .catch(err => next(err));
+      }).catch(err => next(err));
     },
     function triggerComplete(next) {
-      const s3url = 'https://s3.amazonaws.com/' + s3bucket + '/' + vine_id;
+      const s3url = `https://s3.amazonaws.com/${s3bucket}/${vine_id}`;
       const data = {
         'frames': frames,
         'size': size,
@@ -169,8 +162,7 @@ module.exports = (event, context, callback) => {
       };
       publish(progressTopic, data).then(() => {
         next();
-      })
-      .catch(err => next(err));
+      }).catch(err => next(err));
     },
     function done() {
       console.log('done');
