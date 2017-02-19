@@ -155,7 +155,7 @@ module.exports = (event, context, callback) => {
         'sprite_url': `${s3url}.jpg`,
         'audio_url': `${s3url}.mp3`
       };
-      publish(progressTopic, data).then(() => {
+      publish(progressTopic, 'done', data).then(() => {
         next();
       }).catch(err => next(err));
     },
@@ -192,17 +192,18 @@ function putObject(fileName, key, next) {
 	});
 }
 
-function publish(topic, message) {
+function publish(topic, status, data) {
   const iotdata = new AWS.IotData({ endpoint: process.env.IOT_ENDPOINT });
   return new Promise((resolve, reject) => {
     iotdata.publish({
         topic: topic,
-        payload: JSON.stringify({ message: message }),
+        payload: JSON.stringify({ status, data }),
         qos: 1
       }, (err, data) => {
         if (err) {
           console.log(`iot error: ${err}`);
         }
+
         return resolve();
       });
   });
