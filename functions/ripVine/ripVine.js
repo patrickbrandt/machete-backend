@@ -28,77 +28,77 @@ module.exports = (event, context, callback) => {
       // thus, I'm cleaning up all files and directories at the start
       //TODO: experiment with this in Bash to figure out why timeout is happening
       //OR: test for existance of each file and short-circuit processing if file already exists
-			console.log('cleaning /tmp');
+      console.log('cleaning /tmp');
       rimraf.sync(framesDirectory);
       ['mp3', 'jpg', 'mp4'].forEach(ext => {
         try {
           fs.unlinkSync(`/tmp/${vineId}.${ext}`);
         } catch (err) {}
       });
-			next();
-		},
+      next();
+    },
     function getVineData(next) {
       //example: https://archive.vine.co/posts/eD7EM9XZpeu.json
-			https.get(`https://archive.vine.co/posts/${vineId}.json`, response => {
-				let data = '';
-				response.on('data', chunk => {
-					data += chunk;
-				})
-				.on('end', () => {
+      https.get(`https://archive.vine.co/posts/${vineId}.json`, response => {
+        let data = '';
+        response.on('data', chunk => {
+          data += chunk;
+        })
+        .on('end', () => {
           const videoData = JSON.parse(data);
           const videoSrc = videoData.videoUrl;
-					console.log(`videoSrc: ${videoSrc}`);
-					next(null, videoSrc);
-				})
-				.on('error', err => {
-					next(err);
-				});
-			});
+          console.log(`videoSrc: ${videoSrc}`);
+          next(null, videoSrc);
+        })
+        .on('error', err => {
+          next(err);
+        });
+      });
     },
     function downloadVideo(videoSrc, next) {
       console.log(`in downloadVideo function with videoSrc of ${videoSrc}`);
       publish(progressTopic, 'downloading vine').then(() => {
         https.get(videoSrc.replace('http:', 'https:'), response => {
-  				const videoFileName = `/tmp/${vineId}.mp4`;
-  				const videoFile = fs.createWriteStream(videoFileName);
-  	  		response.pipe(videoFile);
-  	  		response.on('end', () => {
-  	  			console.log(`${videoFileName} downloaded`);
-  		  		next(null, videoFileName);
-  	  		})
-  	  		.on('error', err => {
-  					next(err);
-  				});
-  			});
+          const videoFileName = `/tmp/${vineId}.mp4`;
+          const videoFile = fs.createWriteStream(videoFileName);
+          response.pipe(videoFile);
+          response.on('end', () => {
+            console.log(`${videoFileName} downloaded`);
+            next(null, videoFileName);
+          })
+          .on('error', err => {
+            next(err);
+          });
+        });
       }).catch(err => next(err));
     },
     function extractFrames(videoFileName, next) {
       fs.mkdirSync(framesDirectory);
       publish(progressTopic, 'converting video - part 1').then(() => {
         new ffmpeg(videoFileName).then(video => {
-					console.log('extracting frames');
-					video.setDisableAudio();
-					video.addCommand('-r', 30);
-					video.addCommand('-t', 6);
-					video.addCommand('-q:v', 3);
-					video.addCommand('-f', 'image2');
-					video.addCommand('-s', `${size}x${size}`);
-					video.save(`${framesDirectory}/${vineId}_%03d.jpg`, (err, files) => {
+          console.log('extracting frames');
+          video.setDisableAudio();
+          video.addCommand('-r', 30);
+          video.addCommand('-t', 6);
+          video.addCommand('-q:v', 3);
+          video.addCommand('-f', 'image2');
+          video.addCommand('-s', `${size}x${size}`);
+          video.save(`${framesDirectory}/${vineId}_%03d.jpg`, (err, files) => {
             if (err) {
               return next(err);
             }
-			      console.log(`extracted files: ${files}`);
-          	next(null, videoFileName);
-					});
-				},
-				err => {
-					next(err);
-				});
+            console.log(`extracted files: ${files}`);
+            next(null, videoFileName);
+          });
+        },
+        err => {
+          next(err);
+        });
       }).catch(err => next(err));
     },
     function createMontage(videoFileName, next) {
       console.log('creating montage');
-			frames = fs.readdirSync(framesDirectory).length;
+      frames = fs.readdirSync(framesDirectory).length;
       publish(progressTopic, 'converting video - part 2').then(() => {
         im()
           .montage(`${framesDirectory}/${vineId}_*.jpg`)
@@ -109,8 +109,8 @@ module.exports = (event, context, callback) => {
             if (err) {
               return next(err);
             }
-          	console.log('wrote montage image');
-          	next(null, videoFileName);
+            console.log('wrote montage image');
+            next(null, videoFileName);
           });
       }).catch(err => next(err));
     },
@@ -118,22 +118,22 @@ module.exports = (event, context, callback) => {
       publish(progressTopic, 'converting audio').then(() => {
         new ffmpeg(videoFileName).then(video => {
           const audioFileName = `/tmp/${vineId}.mp3`;
-  				console.log(`extracting audio to: ${audioFileName}`);
-  				video.setAudioCodec('mp3')
-  					.setAudioBitRate(128)
-  					.setVideoDuration(6)
-  					.setVideoFrameRate(30)
-  					.setDisableVideo()
-  					.save(audioFileName, (err, file) => {
-  						if(err) {
-  							return next(err);
-  						}
-  						console.log(`wrote file to: ${file}`);
+          console.log(`extracting audio to: ${audioFileName}`);
+          video.setAudioCodec('mp3')
+            .setAudioBitRate(128)
+            .setVideoDuration(6)
+            .setVideoFrameRate(30)
+            .setDisableVideo()
+            .save(audioFileName, (err, file) => {
+              if(err) {
+                return next(err);
+              }
+              console.log(`wrote file to: ${file}`);
               next();
-  					});
-  			}, err => {
-  				next(err);
-  			});
+            });
+        }, err => {
+          next(err);
+        });
       });
     },
     function uploadAudioToS3(next) {
@@ -176,20 +176,20 @@ function getVineId(vineUrl) {
 
 function putObject(fileName, key, next) {
   console.log(`uploading ${fileName} to S3 key ${key}`)
-	fs.readFile(fileName, (err, data) => {
-		if (err) {
-			return next(err);
-		}
-		const s3 = new AWS.S3();
-		s3.putObject({ Bucket: s3bucket, Key: key, Body: new Buffer(data, 'binary') }, (err, data) => {
-			if (err) {
-				next(err);
-			} else {
+  fs.readFile(fileName, (err, data) => {
+    if (err) {
+      return next(err);
+    }
+    const s3 = new AWS.S3();
+    s3.putObject({ Bucket: s3bucket, Key: key, Body: new Buffer(data, 'binary') }, (err, data) => {
+      if (err) {
+        next(err);
+      } else {
         console.log(`${fileName} uploaded to ${key}`);
-				next();
-			}
-		});
-	});
+        next();
+      }
+    });
+  });
 }
 
 function publish(topic, status, data) {
