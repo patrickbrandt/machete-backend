@@ -25,6 +25,7 @@ provider:
     IOT_ROLE: machete-iot-1
     IOT_ENDPOINT: a31p550in0aqjb.iot.us-east-1.amazonaws.com
     MACHETE_BUCKET: ${self:custom.machete_bucket}
+    MACHETE_DOMAIN: machete-site.s3-website-us-east-1.amazonaws.com
 
 functions:
   ping:

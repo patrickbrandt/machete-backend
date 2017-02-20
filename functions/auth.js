@@ -7,6 +7,15 @@ const roleName = process.env.IOT_ROLE;
 const uuid = require('uuid/v4');
 
 module.exports = (event, context, callback) => {
+  if (!event.headers.Referer.includes(process.env.MACHETE_DOMAIN)) {
+    callback(null, {
+      statusCode: 500,
+      headers: {
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: 'unauthorized origin'
+    });
+  }
 
   // get the endpoint address
   iot.describeEndpoint({}, (err, data) => {
